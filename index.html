@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>🍎 เกมจับผลไม้ - วิทยาการคำนวณ ป.4</title>
+  <!-- Google Fonts: Prompt & Itim สำหรับเด็กประถม อ่านง่าย สดใส -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Itim&family=Prompt:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: 'Prompt', 'Itim', sans-serif;
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .font-itim {
+      font-family: 'Itim', cursive;
+    }
+    /* สไตล์ปุ่มกดเกมสไตล์ 3D นูนน่ารัก */
+    .btn-bubbly {
+      transition: all 0.1s ease;
+      box-shadow: 0 6px 0 rgba(0, 0, 0, 0.2);
+    }
+    .btn-bubbly:active {
+      transform: translateY(4px);
+      box-shadow: 0 2px 0 rgba(0, 0, 0, 0.2);
+    }
+    /* แอนิเมชันสำหรับกล่องแจ้งเตือนและสถิติ */
+    @keyframes pulse-soft {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.04); }
+    }
+    .animate-pulse-soft {
+      animation: pulse-soft 2s infinite ease-in-out;
+    }
+    /* ป้องกันการ scroll ขณะลากนิ้วบนมือถือ */
+    canvas {
+      touch-action: none;
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-b from-sky-300 via-emerald-100 to-green-200 min-h-screen flex flex-col justify-between items-center p-2 sm:p-4 text-slate-800">
+
+  <!-- ส่วนหัวแถบสถานะ (HUD: คะแนน, ชีวิต, ระดับ) -->
+  <header class="w-full max-w-2xl bg-white/95 backdrop-blur-md rounded-2xl shadow-lg p-3 sm:p-4 border-2 border-emerald-400 mb-2">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <!-- ชื่อเกมและระดับชั้น -->
+      <div class="flex items-center gap-2">
+        <span class="text-3xl">🧺</span>
+        <div>
+          <h1 class="font-extrabold text-lg sm:text-xl text-emerald-700 leading-tight">🍎 เกมจับผลไม้</h1>
+          <p class="text-xs text-slate-500 font-semibold">วิทยาการคำนวณ ชั้น ป.4</p>
+        </div>
+      </div>
+
+      <!-- แดชบอร์ดตัวแปร (Variables): คะแนน | ชีวิต | ระดับ -->
+      <div class="flex items-center gap-2 sm:gap-4 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-300">
+        <!-- ตัวแปรคะแนน -->
+        <div class="text-center">
+          <div class="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">คะแนน (Score)</div>
+          <div id="scoreDisplay" class="font-black text-lg sm:text-2xl text-amber-500 flex items-center justify-center gap-1">
+            <span>0</span> <span class="text-sm">⭐</span>
+          </div>
+        </div>
+
+        <div class="h-8 w-[2px] bg-emerald-200"></div>
+
+        <!-- ตัวแปรชีวิต -->
+        <div class="text-center">
+          <div class="text-[10px] text-rose-500 font-bold uppercase tracking-wider">ชีวิต (Lives)</div>
+          <div id="livesDisplay" class="font-black text-lg sm:text-2xl text-rose-500 tracking-widest">
+            ❤️❤️❤️
+          </div>
+        </div>
+
+        <div class="h-8 w-[2px] bg-emerald-200"></div>
+
+        <!-- ตัวแปรระดับ -->
+        <div class="text-center">
+          <div class="text-[10px] text-blue-500 font-bold uppercase tracking-wider">ระดับ (Level)</div>
+          <div id="levelDisplay" class="font-black text-lg sm:text-2xl text-blue-600">
+            1
+          </div>
+        </div>
+      </div>
+
+      <!-- ปุ่มฟังก์ชันช่วยเหลือและเสียง -->
+      <div class="flex items-center gap-1.5">
+        <button id="soundBtn" class="btn-bubbly bg-amber-400 hover:bg-amber-500 text-amber-950 p-2 rounded-xl text-lg font-bold" title="เปิด/ปิดเสียง">
+          🔊
+        </button>
+        <button id="csConceptsBtn" class="btn-bubbly bg-indigo-500 hover:bg-indigo-600 text-white px-2.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1">
+          💡 <span>เกร็ดโค้ด ป.4</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ส่วนพื้นที่เล่นเกม (Game Area) -->
+  <main class="w-full max-w-2xl relative flex-1 flex flex-col items-center justify-center">
+    <div class="relative w-full aspect-[4/3] max-h-[68vh] rounded-3xl overflow-hidden shadow-2xl border-4 border-amber-300 bg-sky-200">
+      
+      <!-- Canvas หลักสำหรับเกม -->
+      <canvas id="gameCanvas" class="w-full h-full block cursor-pointer"></canvas>
+
+      <!-- หน้าจอเริ่มต้นเกม (Start Overlay) -->
+      <div id="startScreen" class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm flex flex-col items-center justify-center p-4 text-center text-white z-20">
+        <div class="bg-white text-slate-800 p-6 rounded-3xl max-w-sm w-full shadow-2xl border-4 border-emerald-400 animate-pulse-soft">
+          <div class="text-5xl mb-2">🧺🍎🍇</div>
+          <h2 class="text-2xl font-black text-emerald-600 mb-1">ยินดีต้อนรับสู่เกมจับผลไม้!</h2>
+          <p class="text-sm text-slate-600 mb-4">ฝึกทักษะการคำนวณและสมาธิ เลื่อนตะกร้ารับผลไม้แสนอร่อย แล้วระวังระเบิดนะ!</p>
+          
+          <div class="bg-amber-50 rounded-2xl p-3 text-xs text-slate-700 text-left mb-4 space-y-1 border border-amber-200">
+            <p class="font-bold text-amber-800">🎯 กติกาคะแนน:</p>
+            <p>🍎 ส้ม กล้วย แอปเปิล = <strong>+10</strong> คะแนน</p>
+            <p>🍉 แตงโม = <strong>+15</strong> คะแนน</p>
+            <p>🌟 ผลไม้ทองคำพิเศษ = <strong>+20</strong> คะแนน</p>
+            <p class="text-rose-600 font-bold">💣 ระเบิด = เสีย 1 ชีวิต (มี 3 ชีวิต)</p>
+          </div>
+
+          <button id="startGameBtn" class="w-full btn-bubbly bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-lg py-3 rounded-2xl">
+            🚀 เริ่มเล่นเกมเลย!
+          </button>
+        </div>
+      </div>
+
+      <!-- หน้าจอจบเกม (Game Over Overlay) -->
+      <div id="gameOverScreen" class="hidden absolute inset-0 bg-slate-900/75 backdrop-blur-md flex flex-col items-center justify-center p-4 text-center text-white z-20">
+        <div class="bg-white text-slate-800 p-6 rounded-3xl max-w-sm w-full shadow-2xl border-4 border-rose-400">
+          <div class="text-6xl mb-2">💥</div>
+          <h2 class="text-3xl font-black text-rose-600 mb-1">GAME OVER</h2>
+          <p class="text-xs text-slate-500 font-semibold mb-3">ชีวิตหมดแล้ว! พยายามได้ยอดเยี่ยมมาก</p>
+
+          <div class="bg-slate-100 rounded-2xl p-4 mb-4 border border-slate-200">
+            <div class="text-xs text-slate-500 font-bold uppercase">คะแนนที่ทำได้</div>
+            <div id="finalScore" class="text-4xl font-black text-amber-500 my-1">0</div>
+            <div id="highScoreText" class="text-xs text-emerald-600 font-bold">🏆 สถิติสูงสุด: 0 คะแนน</div>
+            <div id="evaluationBadge" class="mt-2 inline-block px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700">
+              นักเก็บผลไม้มือฉมัง!
+            </div>
+          </div>
+
+          <button id="restartGameBtn" class="w-full btn-bubbly bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-extrabold text-lg py-3 rounded-2xl flex items-center justify-center gap-2">
+            <span>🔄</span> เล่นอีกครั้ง
+          </button>
+        </div>
+      </div>
+
+      <!-- หน้าจอหยุดชั่วคราว (Pause Screen) -->
+      <div id="pauseScreen" class="hidden absolute inset-0 bg-slate-900/60 backdrop-blur-sm flex flex-col items-center justify-center p-4 text-center text-white z-20">
+        <div class="bg-white text-slate-800 p-6 rounded-3xl max-w-xs w-full shadow-2xl border-4 border-amber-400">
+          <div class="text-5xl mb-2">⏸️</div>
+          <h2 class="text-2xl font-black text-amber-600 mb-2">พักเบรกเกม</h2>
+          <p class="text-xs text-slate-500 mb-4">หยุดเวลาเพื่อคิดวิเคราะห์และพักสายตา</p>
+          <button id="resumeGameBtn" class="w-full btn-bubbly bg-amber-500 hover:bg-amber-600 text-white font-extrabold py-2.5 rounded-2xl">
+            ▶️ เล่นต่อทันที
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ส่วนควบคุมการเคลื่อนที่สำหรับหน้าจอมือถือ/แท็บเล็ต -->
+  <footer class="w-full max-w-2xl mt-2 flex flex-col sm:flex-row items-center justify-between gap-2">
+    <!-- คำแนะนำการเล่นบนคอมพิวเตอร์ -->
+    <div class="hidden sm:flex items-center gap-2 text-xs text-slate-600 bg-white/80 px-3 py-1.5 rounded-xl border border-slate-200">
+      <span class="font-bold text-emerald-700">⌨️ การควบคุม:</span>
+      <span>กดลูกศร <strong>⬅️ ซ้าย</strong> หรือ <strong>➡️ ขวา</strong> (หรือลากเมาส์)</span>
+    </div>
+
+    <!-- ปุ่มควบคุมสัมผัส ซ้าย-ขวา สำหรับแท็บเล็ต/มือถือ -->
+    <div class="flex items-center justify-center gap-4 w-full sm:w-auto">
+      <button id="btnLeft" class="btn-bubbly flex-1 sm:flex-none sm:w-28 bg-emerald-500 active:bg-emerald-600 text-white py-3 sm:py-2 rounded-2xl font-black text-2xl flex items-center justify-center gap-1 shadow-lg select-none">
+        <span>⬅️</span>
+        <span class="text-sm font-bold sm:inline">ซ้าย</span>
+      </button>
+
+      <button id="pauseToggleBtn" class="btn-bubbly bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-3 sm:py-2 rounded-2xl font-bold text-lg select-none" title="หยุดชั่วคราว">
+        ⏸️
+      </button>
+
+      <button id="btnRight" class="btn-bubbly flex-1 sm:flex-none sm:w-28 bg-emerald-500 active:bg-emerald-600 text-white py-3 sm:py-2 rounded-2xl font-black text-2xl flex items-center justify-center gap-1 shadow-lg select-none">
+        <span class="text-sm font-bold sm:inline">ขวา</span>
+        <span>➡️</span>
+      </button>
+    </div>
+  </footer>
+
+  <!-- โมดอลบทเรียนวิทยาการคำนวณ ป.4 -->
+  <div id="csModal" class="hidden fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-3">
+    <div class="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl border-4 border-indigo-400">
+      <div class="flex justify-between items-start mb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-3xl">💻</span>
+          <div>
+            <h3 class="text-xl font-black text-indigo-700">วิทยาการคำนวณในเกมนี้</h3>
+            <p class="text-xs text-slate-500">บทเรียนสำหรับนักเรียนชั้น ป.4</p>
+          </div>
+        </div>
+        <button id="closeCsModalBtn" class="text-slate-400 hover:text-slate-600 text-2xl font-black p-1">✕</button>
+      </div>
+
+      <div class="space-y-3 text-xs sm:text-sm text-slate-700">
+        <!-- 1. ตัวแปร -->
+        <div class="bg-amber-50 p-3 rounded-2xl border border-amber-200">
+          <h4 class="font-bold text-amber-800 flex items-center gap-1.5 text-sm">
+            <span>📦</span> 1. ตัวแปร (Variables)
+          </h4>
+          <p class="mt-1">
+            คือกล่องสำหรับจดจำข้อมูลที่เปลี่ยนแปลงได้ เช่น:
+            <br>• <code class="bg-white px-1 py-0.5 rounded text-indigo-600 font-mono">score</code> เก็บแต้มสะสม
+            <br>• <code class="bg-white px-1 py-0.5 rounded text-rose-600 font-mono">lives</code> เก็บจำนวนหัวใจ (เริ่มต้นมี 3)
+            <br>• <code class="bg-white px-1 py-0.5 rounded text-blue-600 font-mono">level</code> เก็บลำดับความยาก
+          </p>
+        </div>
+
+        <!-- 2. เงื่อนไข -->
+        <div class="bg-blue-50 p-3 rounded-2xl border border-blue-200">
+          <h4 class="font-bold text-blue-800 flex items-center gap-1.5 text-sm">
+            <span>🔀</span> 2. เงื่อนไข (If-Then-Else)
+          </h4>
+          <p class="mt-1">
+            การตัดสินใจของโปรแกรมตามสถานการณ์:
+            <br>• <strong>ถ้า (เก็บผลไม้ได้)</strong> ➔ คะแนนเพิ่มขึ้น +10
+            <br>• <strong>ถ้า (ชนระเบิด)</strong> ➔ ชีวิตลดลง 1
+            <br>• <strong>ถ้า (ชีวิตเหลือ 0)</strong> ➔ จบเกม (Game Over)
+          </p>
+        </div>
+
+        <!-- 3. การทำซ้ำ -->
+        <div class="bg-emerald-50 p-3 rounded-2xl border border-emerald-200">
+          <h4 class="font-bold text-emerald-800 flex items-center gap-1.5 text-sm">
+            <span>🔁</span> 3. การทำซ้ำ (Loop)
+          </h4>
+          <p class="mt-1">
+            เกมใช้ <strong>Game Loop</strong> ทำงานซ้ำ 60 ครั้งต่อวินาที เพื่อคำนวณตำแหน่งผลไม้ที่ตกลงมา และวาดภาพใหม่ลงบนหน้าจออย่างต่อเนื่อง
+          </p>
+        </div>
+
+        <!-- 4. การตรวจจับการชน -->
+        <div class="bg-purple-50 p-3 rounded-2xl border border-purple-200">
+          <h4 class="font-bold text-purple-800 flex items-center gap-1.5 text-sm">
+            <span>📐</span> 4. การตรวจจับการชน (Collision Detection)
+          </h4>
+          <p class="mt-1">
+            การเปรียบเทียบพิกัดแกน X และ Y ของตะกร้า กับผลไม้ หากขอบเขตซ้อนทับกัน ถือว่าผู้เล่นรับผลไม้นั้นได้สำเร็จ!
+          </p>
+        </div>
+      </div>
+
+      <button id="closeCsModalBtn2" class="w-full mt-4 btn-bubbly bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-2xl">
+        เข้าใจแล้ว เยี่ยมมาก! ✨
+      </button>
+    </div>
+  </div>
+
+  <script>
+    /* ==========================================================================
+       ระบบเสียงสังเคราะห์ (Web Audio API) โดยไม่ต้องใช้ไฟล์เสียงภายนอก
+       ========================================================================== */
+    class SoundController {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) {
+            this.ctx = new AudioContext();
+          }
+        }
+      }
+
+      playCatch() {
+        if (this.muted || !this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          // โน้ตความถี่สูงสดใส
+          osc.frequency.setValueAtTime(587.33, this.ctx.currentTime); // D5
+          osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.12); // A5
+          
+          gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.16);
+        } catch (e) {
+          console.warn("Audio error:", e);
+        }
+      }
+
+      playSpecialCatch() {
+        if (this.muted || !this.ctx) return;
+        try {
+          const now = this.ctx.currentTime;
+          [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now + i * 0.05);
+            gain.gain.setValueAtTime(0.2, now + i * 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + (i + 1) * 0.08);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now + i * 0.05);
+            osc.stop(now + (i + 1) * 0.09);
+          });
+        } catch (e) {
+          console.warn("Audio error:", e);
+        }
+      }
+
+      playBomb() {
+        if (this.muted || !this.ctx) return;
+        try {
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(140, now);
+          osc.frequency.exponentialRampToValueAtTime(35, now + 0.35);
+
+          gain.gain.setValueAtTime(0.4, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.38);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.4);
+        } catch (e) {
+          console.warn("Audio error:", e);
+        }
+      }
+
+      playLevelUp() {
+        if (this.muted || !this.ctx) return;
+        try {
+          const now = this.ctx.currentTime;
+          const notes = [440, 554.37, 659.25, 880];
+          notes.forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+            gain.gain.setValueAtTime(0.25, now + idx * 0.08);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + (idx + 1) * 0.1);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now + idx * 0.08);
+            osc.stop(now + (idx + 1) * 0.11);
+          });
+        } catch (e) {
+          console.warn("Audio error:", e);
+        }
+      }
+
+      playGameOver() {
+        if (this.muted || !this.ctx) return;
+        try {
+          const now = this.ctx.currentTime;
+          const notes = [440, 392, 349.23, 261.63];
+          notes.forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now + idx * 0.14);
+            gain.gain.setValueAtTime(0.3, now + idx * 0.14);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + (idx + 1) * 0.18);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now + idx * 0.14);
+            osc.stop(now + (idx + 1) * 0.19);
+          });
+        } catch (e) {
+          console.warn("Audio error:", e);
+        }
+      }
+    }
+
+    const sound = new SoundController();
+
+    // นิยามชนิดของผลไม้และไอเทมในเกม
+    const ITEM_TYPES = [
+      { id: 'apple', name: 'แอปเปิล', emoji: '🍎', score: 10, isBomb: false, chance: 30, color: '#ef4444' },
+      { id: 'orange', name: 'ส้ม', emoji: '🍊', score: 10, isBomb: false, chance: 25, color: '#f97316' },
+      { id: 'banana', name: 'กล้วย', emoji: '🍌', score: 10, isBomb: false, chance: 20, color: '#eab308' },
+      { id: 'watermelon', name: 'แตงโม', emoji: '🍉', score: 15, isBomb: false, chance: 15, color: '#10b981' },
+      { id: 'special', name: 'ผลไม้ทองคำ', emoji: '🌟', score: 20, isBomb: false, chance: 8, color: '#f59e0b' },
+      { id: 'bomb', name: 'ระเบิด', emoji: '💣', score: 0, isBomb: true, chance: 12, color: '#334155' }
+    ];
+
+    // ตัวแปรสถานะเกม (Game State Variables)
+    let canvas, ctx;
+    let logicalWidth = 600;
+    let logicalHeight = 450;
+    let scaleRatio = 1;
+
+    let gameState = 'START'; // 'START', 'PLAYING', 'PAUSED', 'GAMEOVER'
+    let score = 0;
+    let lives = 3;
+    let level = 1;
+    let highScore = 0;
+
+    // ตัวแปรตะกร้า (Basket)
+    const basket = {
+      x: 250,
+      y: 380,
+      width: 90,
+      height: 48,
+      speed: 8.5,
+      movingLeft: false,
+      movingRight: false,
+      targetX: null
+    };
+
+    // วัตถุที่กำลังตกลงมา
+    let fallingItems = [];
+    let particles = [];
+    let floatingTexts = [];
+
+    // ตัวจับเวลาและตัวสร้างวัตถุ (Spawning Variables)
+    let spawnTimer = 0;
+    let spawnInterval = 65; // เฟรมต่อการเกิด 1 ชิ้น
+    let baseFallSpeed = 3.2;
+
+    // กราฟิกตกแต่งฉากหลัง (ก้อนเมฆและใบไม้)
+    let clouds = [
+      { x: 50, y: 40, s: 0.8, speed: 0.3 },
+      { x: 260, y: 70, s: 1.1, speed: 0.2 },
+      { x: 450, y: 30, s: 0.6, speed: 0.4 }
+    ];
+
+    // อ้างอิง DOM Elements
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    const livesDisplay = document.getElementById('livesDisplay');
+    const levelDisplay = document.getElementById('levelDisplay');
+    const startScreen = document.getElementById('startScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const pauseScreen = document.getElementById('pauseScreen');
+    const finalScoreEl = document.getElementById('finalScore');
+    const highScoreTextEl = document.getElementById('highScoreText');
+    const evaluationBadgeEl = document.getElementById('evaluationBadge');
+
+    const startGameBtn = document.getElementById('startGameBtn');
+    const restartGameBtn = document.getElementById('restartGameBtn');
+    const resumeGameBtn = document.getElementById('resumeGameBtn');
+    const pauseToggleBtn = document.getElementById('pauseToggleBtn');
+    const soundBtn = document.getElementById('soundBtn');
+    const btnLeft = document.getElementById('btnLeft');
+    const btnRight = document.getElementById('btnRight');
+    const csConceptsBtn = document.getElementById('csConceptsBtn');
+    const csModal = document.getElementById('csModal');
+    const closeCsModalBtn = document.getElementById('closeCsModalBtn');
+    const closeCsModalBtn2 = document.getElementById('closeCsModalBtn2');
+
+    // ปรับขนาด Canvas ให้คมชัดตามขนาดหน้าจอจริง (Hi-DPI aware)
+    function resizeCanvas() {
+      const container = canvas.parentElement;
+      const rect = container.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+
+      // คำนวณอัตราส่วนมาตราส่วน
+      scaleRatio = (rect.width * dpr) / logicalWidth;
+      ctx.setTransform(scaleRatio, 0, 0, scaleRatio, 0, 0);
+    }
+
+    // การควบคุมด้วยคีย์บอร์ด
+    window.addEventListener('keydown', (e) => {
+      sound.init();
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+        basket.movingLeft = true;
+      }
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+        basket.movingRight = true;
+      }
+      if (e.key === 'p' || e.key === 'P' || e.key === ' ') {
+        if (gameState === 'PLAYING') togglePause();
+        else if (gameState === 'PAUSED') togglePause();
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+        basket.movingLeft = false;
+      }
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+        basket.movingRight = false;
+      }
+    });
+
+    // ปุ่มสัมผัสซ้าย-ขวาสำหรับมือถือ
+    const setTouchControls = (element, direction, isPressed) => {
+      element.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        sound.init();
+        if (direction === 'left') basket.movingLeft = isPressed;
+        if (direction === 'right') basket.movingRight = isPressed;
+      });
+      element.addEventListener('pointerup', (e) => {
+        e.preventDefault();
+        if (direction === 'left') basket.movingLeft = !isPressed;
+        if (direction === 'right') basket.movingRight = !isPressed;
+      });
+      element.addEventListener('pointerleave', (e) => {
+        if (direction === 'left') basket.movingLeft = false;
+        if (direction === 'right') basket.movingRight = false;
+      });
+    };
+
+    setTouchControls(btnLeft, 'left', true);
+    setTouchControls(btnRight, 'right', true);
+
+    // รองรับการลากนิ้ว/เมาส์บนตัว Canvas โดยตรงเพื่อเลื่อนตะกร้าได้นุ่มนวล
+    let isPointerDownOnCanvas = false;
+
+    function handlePointerMove(e) {
+      if (!isPointerDownOnCanvas && e.type !== 'pointerdown') return;
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+      if (clientX === undefined) return;
+
+      const relativeX = (clientX - rect.left) / (rect.width / logicalWidth);
+      // ตั้งค่าให้จุดกึ่งกลางของตะกร้าวิ่งตามนิ้ว
+      basket.x = Math.max(0, Math.min(logicalWidth - basket.width, relativeX - basket.width / 2));
+    }
+
+    canvas = document.getElementById('gameCanvas');
+    ctx = canvas.getContext('2d');
+
+    canvas.addEventListener('pointerdown', (e) => {
+      sound.init();
+      isPointerDownOnCanvas = true;
+      handlePointerMove(e);
+    });
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', () => { isPointerDownOnCanvas = false; });
+
+    // บันทึก/โหลดสถิติสูงสุด
+    function loadHighScore() {
+      try {
+        const saved = localStorage.getItem('fruit_catch_highscore_grade4');
+        if (saved !== null) {
+          highScore = parseInt(saved, 10) || 0;
+        }
+      } catch (err) {
+        highScore = 0;
+      }
+    }
+
+    function saveHighScore() {
+      if (score > highScore) {
+        highScore = score;
+        try {
+          localStorage.setItem('fruit_catch_highscore_grade4', highScore.toString());
+        } catch (err) {}
+      }
+    }
+
+    function resetGame() {
+      score = 0;
+      lives = 3;
+      level = 1;
+      baseFallSpeed = 3.2;
+      spawnInterval = 65;
+      spawnTimer = 0;
+      fallingItems = [];
+      particles = [];
+      floatingTexts = [];
+      basket.x = (logicalWidth - basket.width) / 2;
+      basket.movingLeft = false;
+      basket.movingRight = false;
+
+      updateHUD();
+      gameOverScreen.classList.add('hidden');
+      startScreen.classList.add('hidden');
+      pauseScreen.classList.add('hidden');
+      gameState = 'PLAYING';
+    }
+
+    function updateHUD() {
+      // อัปเดตการแสดงผลตัวแปร
+      scoreDisplay.innerHTML = `<span>${score}</span> <span class="text-sm">⭐</span>`;
+      
+      let hearts = '';
+      for (let i = 0; i < lives; i++) hearts += '❤️';
+      for (let i = lives; i < 3; i++) hearts += '🖤';
+      livesDisplay.textContent = hearts;
+
+      levelDisplay.textContent = level;
+    }
+
+    function checkLevelProgression() {
+      // แนวคิดเงื่อนไข (Conditionals): เปลี่ยนระดับทุก ๆ 50 คะแนน
+      const newLevel = Math.floor(score / 50) + 1;
+      if (newLevel > level) {
+        level = newLevel;
+        baseFallSpeed += 0.5; // ผลไม้ตกเร็วขึ้น
+        spawnInterval = Math.max(30, spawnInterval - 6); // วัตถุตกลงมาถี่ขึ้น
+        sound.playLevelUp();
+        addFloatingText(logicalWidth / 2, 180, `🎉 เลเวลอัป! ขั้นที่ ${level}`, '#4f46e5', 24);
+      }
+      updateHUD();
+    }
+
+    // สุ่มเลือกผลไม้หรือระเบิด โดยเพิ่มโอกาสเกิดระเบิดตามระดับความยาก
+    function getRandomItemType() {
+      // โอกาสเกิดระเบิดเพิ่มขึ้นเล็กน้อยในระดับสูงขึ้น
+      const bombChanceModifier = Math.min(18, (level - 1) * 3);
+      
+      const weightedList = ITEM_TYPES.map(item => {
+        let weight = item.chance;
+        if (item.isBomb) {
+          weight += bombChanceModifier;
+        }
+        return { item, weight };
+      });
+
+      const totalWeight = weightedList.reduce((acc, curr) => acc + curr.weight, 0);
+      let randomVal = Math.random() * totalWeight;
+
+      for (const entry of weightedList) {
+        if (randomVal < entry.weight) {
+          return entry.item;
+        }
+        randomVal -= entry.weight;
+      }
+      return ITEM_TYPES[0];
+    }
+
+    function spawnFallingItem() {
+      const type = getRandomItemType();
+      const size = 36;
+      const x = Math.random() * (logicalWidth - size - 40) + 20;
+      const speed = baseFallSpeed + (Math.random() * 1.2 - 0.6);
+      
+      fallingItems.push({
+        type: type,
+        x: x,
+        y: -size,
+        size: size,
+        speed: Math.max(2.2, speed),
+        rotation: 0,
+        rotationSpeed: (Math.random() - 0.5) * 0.08
+      });
+    }
+
+    function createParticles(x, y, color, count = 12) {
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const velocity = Math.random() * 4 + 1.5;
+        particles.push({
+          x: x,
+          y: y,
+          vx: Math.cos(angle) * velocity,
+          vy: Math.sin(angle) * velocity - 1,
+          color: color,
+          size: Math.random() * 5 + 3,
+          alpha: 1,
+          decay: Math.random() * 0.03 + 0.02
+        });
+      }
+    }
+
+    function addFloatingText(x, y, text, color = '#f59e0b', size = 18) {
+      floatingTexts.push({
+        x: x,
+        y: y,
+        text: text,
+        color: color,
+        alpha: 1,
+        size: size,
+        vy: -1.4
+      });
+    }
+
+    function checkCollision(basket, item) {
+      // ตรวจสอบการชนกันระหว่างสี่เหลี่ยมตะกร้ากับวัตถุ (AABB Collision)
+      const basketHitbox = {
+        left: basket.x + 8,
+        right: basket.x + basket.width - 8,
+        top: basket.y + 6,
+        bottom: basket.y + basket.height
+      };
+
+      const itemHitbox = {
+        left: item.x,
+        right: item.x + item.size,
+        top: item.y + item.size * 0.2,
+        bottom: item.y + item.size
+      };
+
+      return (
+        basketHitbox.left < itemHitbox.right &&
+        basketHitbox.right > itemHitbox.left &&
+        basketHitbox.top < itemHitbox.bottom &&
+        basketHitbox.bottom > itemHitbox.top
+      );
+    }
+
+    function handleGameOver() {
+      gameState = 'GAMEOVER';
+      saveHighScore();
+      sound.playGameOver();
+
+      finalScoreEl.textContent = `${score} คะแนน`;
+      highScoreTextEl.textContent = `🏆 สถิติสูงสุด: ${highScore} คะแนน`;
+
+      // ป้ายประเมินน่ารักสำหรับเด็ก ป.4
+      if (score >= 150) {
+        evaluationBadgeEl.textContent = "🌟 อัจฉริยะโค้ดดิ้ง & นักจับผลไม้ระดับเซียน!";
+        evaluationBadgeEl.className = "mt-2 inline-block px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800";
+      } else if (score >= 80) {
+        evaluationBadgeEl.textContent = "🥇 ยอดเยี่ยมมาก! ทักษะการคิดคำนวณและสายตาไวสุด ๆ";
+        evaluationBadgeEl.className = "mt-2 inline-block px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800";
+      } else {
+        evaluationBadgeEl.textContent = "💪 ฝีมือดีมาก ลองใหม่อีกรอบเพื่อทำลายสถิตินะ!";
+        evaluationBadgeEl.className = "mt-2 inline-block px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800";
+      }
+
+      gameOverScreen.classList.remove('hidden');
+    }
+
+    function update() {
+      if (gameState !== 'PLAYING') return;
+
+      // 1. อัปเดตตำแหน่งตะกร้าตามการกดปุ่ม
+      if (basket.movingLeft) {
+        basket.x -= basket.speed;
+      }
+      if (basket.movingRight) {
+        basket.x += basket.speed;
+      }
+
+      // ป้องกันตะกร้าหลุดออกจากขอบจอ
+      if (basket.x < 0) basket.x = 0;
+      if (basket.x + basket.width > logicalWidth) basket.x = logicalWidth - basket.width;
+
+      // 2. ปล่อยผลไม้ตามรอบเวลา (Loop & Conditions)
+      spawnTimer++;
+      if (spawnTimer >= spawnInterval) {
+        spawnFallingItem();
+        spawnTimer = 0;
+      }
+
+      // 3. อัปเดตตำแหน่งผลไม้และตรวจสอบการชน
+      for (let i = fallingItems.length - 1; i >= 0; i--) {
+        const item = fallingItems[i];
+        item.y += item.speed;
+        item.rotation += item.rotationSpeed;
+
+        // ตรวจสอบการชนกับตะกร้า
+        if (checkCollision(basket, item)) {
+          if (item.type.isBomb) {
+            // โดนระเบิด -> ลดชีวิต
+            lives--;
+            sound.playBomb();
+            createParticles(item.x + item.size / 2, item.y + item.size / 2, '#475569', 20);
+            addFloatingText(item.x, item.y - 10, '💥 -1 ❤️', '#e11d48', 22);
+
+            if (lives <= 0) {
+              updateHUD();
+              handleGameOver();
+              return;
+            }
+          } else {
+            // รับผลไม้สำเร็จ -> เพิ่มคะแนน
+            score += item.type.score;
+            if (item.type.id === 'special') {
+              sound.playSpecialCatch();
+              createParticles(item.x + item.size / 2, item.y + item.size / 2, '#f59e0b', 18);
+              addFloatingText(item.x, item.y - 10, `+${item.type.score} พิเศษ! 🌟`, '#f59e0b', 20);
+            } else {
+              sound.playCatch();
+              createParticles(item.x + item.size / 2, item.y + item.size / 2, item.type.color, 12);
+              addFloatingText(item.x, item.y - 10, `+${item.type.score}`, '#10b981', 18);
+            }
+            checkLevelProgression();
+          }
+
+          updateHUD();
+          fallingItems.splice(i, 1);
+          continue;
+        }
+
+        // หากผลไม้หลุดจอลงด้านล่าง
+        if (item.y > logicalHeight + 20) {
+          fallingItems.splice(i, 1);
+        }
+      }
+
+      // 4. อัปเดตเอฟเฟกต์อนุภาคกระจาย
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.12; // แรงโน้มถ่วง
+        p.alpha -= p.decay;
+        if (p.alpha <= 0) {
+          particles.splice(i, 1);
+        }
+      }
+
+      // 5. อัปเดตข้อความคะแนนลอย
+      for (let i = floatingTexts.length - 1; i >= 0; i--) {
+        const ft = floatingTexts[i];
+        ft.y += ft.vy;
+        ft.alpha -= 0.02;
+        if (ft.alpha <= 0) {
+          floatingTexts.splice(i, 1);
+        }
+      }
+
+      // 6. อัปเดตก้อนเมฆบนท้องฟ้า
+      clouds.forEach(c => {
+        c.x += c.speed;
+        if (c.x > logicalWidth + 80) c.x = -80;
+      });
+    }
+
+    function drawCloud(cx, cy, scale) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.beginPath();
+      ctx.arc(cx, cy, 20 * scale, 0, Math.PI * 2);
+      ctx.arc(cx + 18 * scale, cy - 8 * scale, 24 * scale, 0, Math.PI * 2);
+      ctx.arc(cx + 38 * scale, cy, 20 * scale, 0, Math.PI * 2);
+      ctx.arc(cx + 16 * scale, cy + 6 * scale, 18 * scale, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawBasket(x, y, w, h) {
+      ctx.save();
+      
+      // เงาใต้ตะกร้า
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+      ctx.beginPath();
+      ctx.ellipse(x + w / 2, y + h + 2, w * 0.48, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // ตัวตะกร้าสาน (Woven Basket)
+      const r = 12;
+      ctx.fillStyle = '#b45309'; // น้ำตาลเข้มขอบ
+      ctx.beginPath();
+      ctx.roundRect(x, y + 10, w, h - 10, [4, 4, 18, 18]);
+      ctx.fill();
+
+      // สีด้านในตะกร้า
+      ctx.fillStyle = '#d97706';
+      ctx.beginPath();
+      ctx.roundRect(x + 4, y + 12, w - 8, h - 16, [2, 2, 14, 14]);
+      ctx.fill();
+
+      // ลวดลายสานของตะกร้า
+      ctx.strokeStyle = '#92400e';
+      ctx.lineWidth = 2.5;
+      for (let ix = x + 12; ix < x + w - 8; ix += 14) {
+        ctx.beginPath();
+        ctx.moveTo(ix, y + 12);
+        ctx.lineTo(ix + 6, y + h - 4);
+        ctx.stroke();
+      }
+      for (let iy = y + 16; iy < y + h - 4; iy += 10) {
+        ctx.beginPath();
+        ctx.moveTo(x + 6, iy);
+        ctx.lineTo(x + w - 6, iy);
+        ctx.stroke();
+      }
+
+      // หูหิ้วตะกร้า
+      ctx.strokeStyle = '#78350f';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(x + w / 2, y + 14, w * 0.35, Math.PI, 0, false);
+      ctx.stroke();
+
+      // โบว์น่ารักตกแต่ง
+      ctx.fillStyle = '#f43f5e';
+      ctx.beginPath();
+      ctx.arc(x + w / 2, y + 12, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function render() {
+      ctx.clearRect(0, 0, logicalWidth, logicalHeight);
+
+      // 1. พื้นหลังท้องฟ้าและแสงแดดสวนผลไม้
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, logicalHeight);
+      skyGrad.addColorStop(0, '#7dd3fc'); // ฟ้าสดใส
+      skyGrad.addColorStop(0.7, '#bae6fd');
+      skyGrad.addColorStop(1, '#86efac'); // หญ้าเขียวชอุ่ม
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, logicalWidth, logicalHeight);
+
+      // ก้อนเมฆลอย
+      clouds.forEach(c => drawCloud(c.x, c.y, c.s));
+
+      // เนินดินและสนามหญ้าด้านล่าง
+      ctx.fillStyle = '#22c55e';
+      ctx.beginPath();
+      ctx.ellipse(logicalWidth * 0.3, logicalHeight + 30, 320, 75, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#16a34a';
+      ctx.beginPath();
+      ctx.ellipse(logicalWidth * 0.8, logicalHeight + 35, 340, 80, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // ดอกไม้เล็ก ๆ ประดับพื้นหลัง
+      const flowerPositions = [40, 110, 200, 310, 420, 520, 570];
+      flowerPositions.forEach((fx, idx) => {
+        ctx.fillStyle = idx % 2 === 0 ? '#fef08a' : '#f472b6';
+        ctx.beginPath();
+        ctx.arc(fx, logicalHeight - 12, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(fx, logicalHeight - 12, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // 2. วาดผลไม้และระเบิดที่กำลังตกลงมา
+      fallingItems.forEach(item => {
+        ctx.save();
+        ctx.translate(item.x + item.size / 2, item.y + item.size / 2);
+        ctx.rotate(item.rotation);
+
+        // แสงเรืองแสงหากเป็นไอเทมทองคำพิเศษ
+        if (item.type.id === 'special') {
+          ctx.shadowColor = '#f59e0b';
+          ctx.shadowBlur = 12;
+        }
+
+        ctx.font = `${item.size}px 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(item.type.emoji, 0, 0);
+
+        ctx.restore();
+      });
+
+      // 3. วาดตะกร้าผู้เล่น
+      drawBasket(basket.x, basket.y, basket.width, basket.height);
+
+      // 4. วาดอนุภาคกระจาย
+      particles.forEach(p => {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.alpha);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      // 5. วาดข้อความคะแนนลอย
+      floatingTexts.forEach(ft => {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, ft.alpha);
+        ctx.fillStyle = ft.color;
+        ctx.font = `bold ${ft.size}px 'Prompt', sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#ffffff';
+        ctx.strokeText(ft.text, ft.x, ft.y);
+        ctx.fillText(ft.text, ft.x, ft.y);
+        ctx.restore();
+      });
+    }
+
+    function gameLoop() {
+      update();
+      render();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function togglePause() {
+      if (gameState === 'PLAYING') {
+        gameState = 'PAUSED';
+        pauseScreen.classList.remove('hidden');
+        pauseToggleBtn.textContent = '▶️';
+      } else if (gameState === 'PAUSED') {
+        gameState = 'PLAYING';
+        pauseScreen.classList.add('hidden');
+        pauseToggleBtn.textContent = '⏸️';
+      }
+    }
+
+    // กำหนดเหตุการณ์ปุ่มต่าง ๆ
+    startGameBtn.addEventListener('click', () => {
+      sound.init();
+      resetGame();
+    });
+
+    restartGameBtn.addEventListener('click', () => {
+      sound.init();
+      resetGame();
+    });
+
+    resumeGameBtn.addEventListener('click', () => {
+      togglePause();
+    });
+
+    pauseToggleBtn.addEventListener('click', () => {
+      sound.init();
+      togglePause();
+    });
+
+    soundBtn.addEventListener('click', () => {
+      sound.init();
+      sound.muted = !sound.muted;
+      soundBtn.textContent = sound.muted ? '🔇' : '🔊';
+      soundBtn.title = sound.muted ? 'เปิดเสียง' : 'ปิดเสียง';
+    });
+
+    // โมดอลวิทยาการคำนวณ
+    csConceptsBtn.addEventListener('click', () => {
+      if (gameState === 'PLAYING') togglePause();
+      csModal.classList.remove('hidden');
+    });
+
+    const closeCsModal = () => {
+      csModal.classList.add('hidden');
+    };
+    closeCsModalBtn.addEventListener('click', closeCsModal);
+    closeCsModalBtn2.addEventListener('click', closeCsModal);
+
+    // ป้องกันปัญหาการสัมผัสผิดพลาดขณะกดเล่น
+    window.addEventListener('resize', resizeCanvas);
+
+    // เริ่มต้นระบบเมื่อหน้าเว็บโหลดเสร็จสมบูรณ์
+    window.onload = function () {
+      loadHighScore();
+      resizeCanvas();
+      updateHUD();
+      // เริ่ม Game Loop ทันทีเพื่อให้ฉากหลังและเมฆเคลื่อนไหวอย่างมีชีวิตชีวา
+      requestAnimationFrame(gameLoop);
+    };
+  </script>
+</body>
+</html>
